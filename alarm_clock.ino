@@ -4,7 +4,7 @@
 #include "Adafruit_GFX.h"
 #include "Time.h"
 #include "Encoder.h"
-#include "Bounce2.h"
+#include "Button.h"
 
 #define ENCODER_THRESHOLD 4
 
@@ -27,10 +27,14 @@ void loop() {
   // Display Time
   int curHour = hour();
   int curMin = minute();
+  int curSecond = second();
+
+  int minuteMovement = minuteEncoder.read() / ENCODER_THRESHOLD;
+  int hourMovement = hourEncoder.read() / ENCODER_THRESHOLD;
 
   switch(mode) {
     case CLOCK:
-      displayClock(curHour, curMin);
+      displayClock(curHour, curMin, curSecond, minuteMovement, hourMovement);
       break;
 
     case SET_ALARM1:
@@ -43,13 +47,10 @@ void loop() {
 
 }
 
-void displayClock(int currentHour, int currentMinute) {
-  displayTime(currentHour, currentMinute, matrix);
-
-  int minuteMovement = minuteEncoder.read() / ENCODER_THRESHOLD;
-  int newMinute = calculateWraparound(currentMinute, minuteMovement, 60);  
-
-  int hourMovement = hourEncoder.read() / ENCODER_THRESHOLD;
+void displayClock(int currentHour, int currentMinute, int currentSecond, int minuteMovement, int hourMovement) {
+  displayTime(currentHour, currentMinute, currentSecond % 2 == 0, matrix);
+  
+  int newMinute = calculateWraparound(currentMinute, minuteMovement, 60);    
   int newHour = calculateWraparound(currentHour, hourMovement, 24);
   
   if (newMinute != currentMinute || newHour != currentHour) {
@@ -71,7 +72,7 @@ int calculateWraparound(int curValue, int delta, int maxValue) {
   return newValue;
 }
 
-void displayTime(int currentHour, int currentMinute, Adafruit_7segment matrix) {
+void displayTime(int currentHour, int currentMinute, boolean drawColon, Adafruit_7segment matrix) {
   if (currentHour < 10) {
       matrix.writeDigitRaw(0,0);
     } else {
@@ -81,6 +82,6 @@ void displayTime(int currentHour, int currentMinute, Adafruit_7segment matrix) {
     matrix.writeDigitNum(1, currentHour % 10);
     matrix.writeDigitNum(3, currentMinute / 10);
     matrix.writeDigitNum(4, currentMinute == 0 ? 0 : (currentMinute % 10));  
-    matrix.drawColon(second() % 2 == 0);
+    matrix.drawColon(drawColon);
     matrix.writeDisplay();
 }
