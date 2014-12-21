@@ -5,18 +5,18 @@
 #include "Time.h"
 #include "Encoder.h"
 
+#define ENCODER_THRESHOLD 4
 
 Adafruit_7segment matrix = Adafruit_7segment();
-Encoder minEncoder = Encoder(8,9);
+Encoder minuteEncoder = Encoder(8,9);
 Encoder hourEncoder = Encoder(3,4);
 
 void setup() {
 #ifndef __AVR_ATtiny85__
   Serial.begin(9600);
-  Serial.println("7 Segment Backpack Test");
+  Serial.println("Alarm Clock v0.1a");
 #endif
   matrix.begin(0x70);
-  minEncoder.write(0);
 }
 
 void loop() {
@@ -24,53 +24,44 @@ void loop() {
   int curHour = hour();
   int curMin = minute();
 
-  if (curHour < 10) {
-    matrix.writeDigitRaw(0,0);
-  } else {
-    matrix.writeDigitNum(0, curHour / 10);
-  }
-  matrix.writeDigitNum(1, curHour % 10);
-  matrix.writeDigitNum(3, curMin / 10);
-  matrix.writeDigitNum(4, curMin == 0 ? 0 : (curMin % 10));  
-  matrix.drawColon(second() % 2 == 0);
-  matrix.writeDisplay();
+  displayTime(curHour, curMin, matrix);
 
-  int minuteMovement = minEncoder.read();
-  int threshold = 4;
-  int pauseDelay = 0;
+  int minuteMovement = minuteEncoder.read() / ENCODER_THRESHOLD;
+  int newMin = calculateWraparound(curMin, minuteMovement, 60);  
+
+  int hourMovement = hourEncoder.read() / ENCODER_THRESHOLD;
+  int newHour = calculateWraparound(curHour, hourMovement, 24);
   
-  if (minuteMovement >= threshold) {
-    Serial.println(minuteMovement, DEC);
-    Serial.println("Adding 1 min!");
-    curMin = (curMin + 1 > 59 ? 0 : curMin + 1);
-    setTime(curHour, curMin, 0, day(), month(), year());  
-    minEncoder.write(0);
-    delay(pauseDelay);
-  } else if (minuteMovement < -threshold) {
-    Serial.println(minuteMovement, DEC);
-    Serial.println("Subtracting 1 min!");
-    curMin = (curMin -1 < 0 ? 59 : curMin - 1);
-    setTime(curHour, curMin, 0, day(), month(), year());
-    minEncoder.write(0);    
-    delay(pauseDelay);
-  }
-  
-  int hourMovement = hourEncoder.read();
-  
-  if (hourMovement >= threshold) {
-    Serial.println(hourMovement, DEC);
-    Serial.println("Adding 1 hour!");
-    curHour = (curHour + 1 > 24 ? 0 : curHour + 1);
-    setTime(curHour, curMin, 0, day(), month(), year());  
+  if (newMin != curMin || newHour != curHour) {
+    setTime(newHour, newMin, 0, day(), month(), year());  
+    minuteEncoder.write(0);      
     hourEncoder.write(0);
-    delay(pauseDelay);
-  } else if (hourMovement <= -threshold) {
-    Serial.println(hourMovement, DEC);
-    Serial.println("Subtracting 1 hour!");
-    curHour = (curHour - 1 < 0 ? 23 : curHour - 1);
-    setTime(curHour, curMin, 0, day(), month(), year());
-    hourEncoder.write(0);    
-    delay(pauseDelay);
   }
-  
+
+}
+
+int calculateWraparound(int curValue, int delta, int maxValue) {
+  int newValue = curValue + delta;
+
+  if (newValue < 0) {
+    return maxValue + newValue;
+  } else if (newValue >= maxValue) {
+    return maxValue - newValue;
+  }
+
+  return newValue;
+}
+
+void displayTime(int currentHour, int currentMinute, Adafruit_7segment matrix) {
+  if (currentHour < 10) {
+      matrix.writeDigitRaw(0,0);
+    } else {
+      matrix.writeDigitNum(0, currentHour / 10);
+    }
+
+    matrix.writeDigitNum(1, currentHour % 10);
+    matrix.writeDigitNum(3, currentMinute / 10);
+    matrix.writeDigitNum(4, currentMinute == 0 ? 0 : (currentMinute % 10));  
+    matrix.drawColon(second() % 2 == 0);
+    matrix.writeDisplay();
 }
