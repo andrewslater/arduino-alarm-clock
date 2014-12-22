@@ -25,6 +25,9 @@ Encoder hourEncoder = Encoder(HOUR_ENCODER_LEFT_PIN, HOUR_ENCODER_RIGHT_PIN);
 Button modeButton = Button(MODE_BUTTON_PIN, true, true, BUTTON_DEBOUNCE_DELAY_MS);
 ClockMode mode = CLOCK;
 
+int alarm1Hour = 12;
+int alarm1Minute = 0;
+
 void setup() {
 #ifndef __AVR_ATtiny85__
   Serial.begin(9600);
@@ -45,9 +48,7 @@ void loop() {
   modeButton.read();
   
   if (modeButton.wasPressed()) {
-    Serial.println("Mode button was pressed");
     cycleMode();
-    Serial.println(mode, DEC);
   }
 
   switch(mode) {
@@ -56,6 +57,9 @@ void loop() {
       break;
 
     case SET_ALARM1:
+      displayAlarm1(minuteMovement, hourMovement, curSecond);
+      break;
+
     case SET_ALARM2:
     case SET_SNOOZE_DURATION:
     default:
@@ -63,6 +67,38 @@ void loop() {
   }
   
 
+}
+
+void displayAlarm1(int minuteMovement, int hourMovement, int currentSecond) {
+  displayTime(alarm1Hour, alarm1Minute, true, matrix);
+  setAlarm1LED(currentSecond % 2 == 0);
+
+  int newMinute = calculateWraparound(alarm1Minute, minuteMovement, 60);    
+  int newHour = calculateWraparound(alarm1Hour, hourMovement, 24);
+  
+  if (newMinute != alarm1Minute || newHour != alarm1Hour) { 
+    alarm1Minute = newMinute;
+    alarm1Hour = newHour;   
+    minuteEncoder.write(0);      
+    hourEncoder.write(0);
+  }
+}
+
+void setAlarm1LED(boolean enable) {
+  if (enable) {
+    matrix.displaybuffer[2] |= 4;  
+  } else {
+    matrix.displaybuffer[2] ^= 4;
+  }
+  
+}
+
+void setAlarm2LED(boolean enable) {
+    if (enable) {
+    matrix.displaybuffer[2] |= 8;  
+  } else {
+    matrix.displaybuffer[2] ^= 8;
+  }
 }
 
 void cycleMode() {
