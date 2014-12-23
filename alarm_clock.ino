@@ -27,6 +27,8 @@ ClockMode mode = CLOCK;
 
 int alarm1Hour = 12;
 int alarm1Minute = 0;
+int alarm2Hour = 12;
+int alarm2Minute = 0;
 
 void setup() {
 #ifndef __AVR_ATtiny85__
@@ -61,6 +63,9 @@ void loop() {
       break;
 
     case SET_ALARM2:
+      displayAlarm2(minuteMovement, hourMovement, curSecond);
+      break;
+      
     case SET_SNOOZE_DURATION:
     default:
       break;
@@ -70,9 +75,10 @@ void loop() {
 }
 
 void displayAlarm1(int minuteMovement, int hourMovement, int currentSecond) {
-  displayTime(alarm1Hour, alarm1Minute, true, matrix);
-  setAlarm1LED(currentSecond % 2 == 0);
-
+  displayTime(alarm1Hour, alarm1Minute, currentSecond % 2 == 0, matrix);
+  setAlarm1LED(currentSecond % 2 == 1);
+  matrix.writeDisplay();
+  
   int newMinute = calculateWraparound(alarm1Minute, minuteMovement, 60);    
   int newHour = calculateWraparound(alarm1Hour, hourMovement, 24);
   
@@ -84,21 +90,36 @@ void displayAlarm1(int minuteMovement, int hourMovement, int currentSecond) {
   }
 }
 
-void setAlarm1LED(boolean enable) {
-  if (enable) {
-    matrix.displaybuffer[2] |= 4;  
-  } else {
-    matrix.displaybuffer[2] ^= 4;
-  }
+void displayAlarm2(int minuteMovement, int hourMovement, int currentSecond) {
+  displayTime(alarm2Hour, alarm2Minute, currentSecond % 2 == 0, matrix);
+  setAlarm2LED(currentSecond % 2 == 1);
+  matrix.writeDisplay();
   
+  int newMinute = calculateWraparound(alarm2Minute, minuteMovement, 60);    
+  int newHour = calculateWraparound(alarm2Hour, hourMovement, 24);
+  
+  if (newMinute != alarm2Minute || newHour != alarm2Hour) { 
+    alarm2Minute = newMinute;
+    alarm2Hour = newHour;   
+    minuteEncoder.write(0);      
+    hourEncoder.write(0);
+  }
+}
+
+void setAlarm1LED(boolean enable) {
+  setColon(enable, 4);
 }
 
 void setAlarm2LED(boolean enable) {
-    if (enable) {
-    matrix.displaybuffer[2] |= 8;  
-  } else {
-    matrix.displaybuffer[2] ^= 8;
-  }
+  setColon(enable, 8);
+}
+
+void setColon(boolean enable, uint8_t mask) {
+  if (enable) {
+    matrix.displaybuffer[2] |= mask;  
+  } else {    
+    matrix.displaybuffer[2] &= ~mask;
+  }  
 }
 
 void cycleMode() {
@@ -132,6 +153,8 @@ void displayClock(int currentHour, int currentMinute, int currentSecond, int min
     minuteEncoder.write(0);      
     hourEncoder.write(0);
   }
+  
+  matrix.writeDisplay();
 }
 
 int calculateWraparound(int curValue, int delta, int maxValue) {
@@ -146,7 +169,7 @@ int calculateWraparound(int curValue, int delta, int maxValue) {
   return newValue;
 }
 
-void displayTime(int currentHour, int currentMinute, boolean drawColon, Adafruit_7segment matrix) {
+void displayTime(int currentHour, int currentMinute, boolean drawColon, Adafruit_7segment &matrix) {
   if (currentHour < 10) {
       matrix.writeDigitRaw(0,0);
     } else {
@@ -157,5 +180,5 @@ void displayTime(int currentHour, int currentMinute, boolean drawColon, Adafruit
     matrix.writeDigitNum(3, currentMinute / 10);
     matrix.writeDigitNum(4, currentMinute == 0 ? 0 : (currentMinute % 10));  
     matrix.drawColon(drawColon);
-    matrix.writeDisplay();
+    //matrix.writeDisplay();
 }
