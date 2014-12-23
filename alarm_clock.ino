@@ -5,6 +5,7 @@
 #include "Time.h"
 #include "Encoder.h"
 #include "Button.h"
+#include "ClockAlarm.h"
 
 #define ENCODER_THRESHOLD 4           // Number of encoder events which corresponding to one 'click'
 #define BUTTON_DEBOUNCE_DELAY_MS  25
@@ -15,20 +16,15 @@
 #define HOUR_ENCODER_RIGHT_PIN    4
 #define MODE_BUTTON_PIN           12
 
-
-
 enum ClockMode {CLOCK, SET_ALARM1, SET_ALARM2, SET_SNOOZE_DURATION};
+
 
 Adafruit_7segment matrix = Adafruit_7segment();
 Encoder minuteEncoder = Encoder(MINUTE_ENCODER_LEFT_PIN, MINUTE_ENCODER_RIGHT_PIN);
 Encoder hourEncoder = Encoder(HOUR_ENCODER_LEFT_PIN, HOUR_ENCODER_RIGHT_PIN);
 Button modeButton = Button(MODE_BUTTON_PIN, true, true, BUTTON_DEBOUNCE_DELAY_MS);
 ClockMode mode = CLOCK;
-
-int alarm1Hour = 12;
-int alarm1Minute = 0;
-int alarm2Hour = 12;
-int alarm2Minute = 0;
+ClockAlarm alarm1, alarm2;
 
 void setup() {
 #ifndef __AVR_ATtiny85__
@@ -36,6 +32,10 @@ void setup() {
   Serial.println("Alarm Clock v0.1c");
 #endif
   matrix.begin(0x70);
+  alarm1.alarmHour = alarm2.alarmHour = 12;
+  alarm1.alarmMinute = alarm2.alarmMinute = 0;
+  alarm1.displayMask = 4;
+  alarm2.displayMask = 8;
 }
 
 void loop() {
@@ -59,11 +59,11 @@ void loop() {
       break;
 
     case SET_ALARM1:
-      displayAlarm1(minuteMovement, hourMovement, curSecond);
+      displayAlarm(alarm1, minuteMovement, hourMovement, curSecond);
       break;
 
     case SET_ALARM2:
-      displayAlarm2(minuteMovement, hourMovement, curSecond);
+      displayAlarm(alarm2, minuteMovement, hourMovement, curSecond);
       break;
       
     case SET_SNOOZE_DURATION:
@@ -74,45 +74,62 @@ void loop() {
 
 }
 
-void displayAlarm1(int minuteMovement, int hourMovement, int currentSecond) {
-  displayTime(alarm1Hour, alarm1Minute, currentSecond % 2 == 0, matrix);
-  setAlarm1LED(currentSecond % 2 == 1);
+void displayAlarm(ClockAlarm alarm, int minuteMovement, int hourMovement, int currentSecond) {
+  displayTime(alarm.alarmHour, alarm.alarmMinute, currentSecond % 2 == 0, matrix);
+  setColon(currentSecond % 2 == 1, alarm.displayMask);
   matrix.writeDisplay();
   
-  int newMinute = calculateWraparound(alarm1Minute, minuteMovement, 60);    
-  int newHour = calculateWraparound(alarm1Hour, hourMovement, 24);
+  int newMinute = calculateWraparound(alarm.alarmMinute, minuteMovement, 60);    
+  int newHour = calculateWraparound(alarm.alarmHour, hourMovement, 24);
   
-  if (newMinute != alarm1Minute || newHour != alarm1Hour) { 
-    alarm1Minute = newMinute;
-    alarm1Hour = newHour;   
+  if (newMinute != alarm.alarmMinute || newHour != alarm.alarmHour) { 
+    alarm.alarmMinute = newMinute;
+    alarm.alarmHour = newHour;   
     minuteEncoder.write(0);      
     hourEncoder.write(0);
   }
 }
 
-void displayAlarm2(int minuteMovement, int hourMovement, int currentSecond) {
-  displayTime(alarm2Hour, alarm2Minute, currentSecond % 2 == 0, matrix);
-  setAlarm2LED(currentSecond % 2 == 1);
-  matrix.writeDisplay();
-  
-  int newMinute = calculateWraparound(alarm2Minute, minuteMovement, 60);    
-  int newHour = calculateWraparound(alarm2Hour, hourMovement, 24);
-  
-  if (newMinute != alarm2Minute || newHour != alarm2Hour) { 
-    alarm2Minute = newMinute;
-    alarm2Hour = newHour;   
-    minuteEncoder.write(0);      
-    hourEncoder.write(0);
-  }
-}
 
-void setAlarm1LED(boolean enable) {
-  setColon(enable, 4);
-}
+// void displayAlarm1(int minuteMovement, int hourMovement, int currentSecond) {
+//   displayTime(alarm1Hour, alarm1Minute, currentSecond % 2 == 0, matrix);
+//   setAlarm1LED(currentSecond % 2 == 1);
+//   matrix.writeDisplay();
+  
+//   int newMinute = calculateWraparound(alarm1Minute, minuteMovement, 60);    
+//   int newHour = calculateWraparound(alarm1Hour, hourMovement, 24);
+  
+//   if (newMinute != alarm1Minute || newHour != alarm1Hour) { 
+//     alarm1Minute = newMinute;
+//     alarm1Hour = newHour;   
+//     minuteEncoder.write(0);      
+//     hourEncoder.write(0);
+//   }
+// }
 
-void setAlarm2LED(boolean enable) {
-  setColon(enable, 8);
-}
+// void displayAlarm2(int minuteMovement, int hourMovement, int currentSecond) {
+//   displayTime(alarm2Hour, alarm2Minute, currentSecond % 2 == 0, matrix);
+//   setAlarm2LED(currentSecond % 2 == 1);
+//   matrix.writeDisplay();
+  
+//   int newMinute = calculateWraparound(alarm2Minute, minuteMovement, 60);    
+//   int newHour = calculateWraparound(alarm2Hour, hourMovement, 24);
+  
+//   if (newMinute != alarm2Minute || newHour != alarm2Hour) { 
+//     alarm2Minute = newMinute;
+//     alarm2Hour = newHour;   
+//     minuteEncoder.write(0);      
+//     hourEncoder.write(0);
+//   }
+// }
+
+// void setAlarm1LED(boolean enable) {
+//   setColon(enable, 4);
+// }
+
+// void setAlarm2LED(boolean enable) {
+//   setColon(enable, 8);
+// }
 
 void setColon(boolean enable, uint8_t mask) {
   if (enable) {
